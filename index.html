@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiszki do nauki - Zarządzanie</title>
+    <style>
+        :root {
+            --primary-color: #4257b2;
+            --bg-color: #f6f7fb;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background-color: #364e9b;
+        }
+
+        button.secondary {
+            background-color: #fff;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+        button.secondary:hover {
+            background-color: #eef1ff;
+        }
+
+        /* Stylizacja karty 3D */
+        .scene {
+            width: 600px;
+            height: 350px;
+            perspective: 1000px;
+            max-width: 90vw;
+            cursor: pointer;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+            box-sizing: border-box;
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            font-size: 24px;
+            color: var(--text-color);
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-face-back {
+            transform: rotateY(180deg);
+            background-color: #fff;
+            font-size: 20px;
+            overflow-y: auto; /* Allow scrolling for long text */
+        }
+
+        .category-tag {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 10px;
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 10px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .progress {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .learning-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-know {
+            background-color: #28a745;
+        }
+
+        .btn-know:hover {
+            background-color: #218838;
+        }
+
+        .btn-dont-know {
+            background-color: #dc3545;
+        }
+
+        .btn-dont-know:hover {
+            background-color: #c82333;
+        }
+
+        .stats {
+            margin-top: 15px;
+            padding: 15px 25px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stats-bar {
+            width: 300px;
+            max-width: 90vw;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px auto;
+        }
+
+        .stats-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #5cb85c);
+            transition: width 0.3s ease;
+        }
+
+        .complete-message {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .complete-message.show {
+            display: flex;
+        }
+
+        .complete-message h2 {
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+
+        .mode-toggle {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-toggle button.active {
+            background-color: #364e9b;
+        }
+
+        /* Latex-like formatting for math */
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            .scene {
+                height: 450px; /* Wyższe karty na mobile dla długich tekstów */
+            }
+            .card-face {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Fiszki Zarządzanie</h1>
+
+    <div class="mode-toggle">
+        <button id="btn-browse" class="active" onclick="setMode('browse')">Przeglądanie</button>
+        <button id="btn-learn" onclick="setMode('learn')">Tryb nauki</button>
+    </div>
+
+    <div class="stats" id="stats" style="display: none;">
+        <div>Opanowane: <strong><span id="known-count">0</span></strong> / <span id="total-learn">0</span></div>
+        <div class="stats-bar">
+            <div class="stats-bar-fill" id="stats-bar-fill" style="width: 0%;"></div>
+        </div>
+        <div style="font-size: 14px; color: #888;">Pozostało do nauki: <span id="remaining-count">0</span></div>
+    </div>
+    
+    <div class="scene" id="card-scene">
+        <div class="card" id="card">
+            <div class="card-face card-face-front">
+                <span class="category-tag" id="category">Kategoria</span>
+                <div id="front-text">Pojęcie</div>
+                <span class="hint">Kliknij, aby odwrócić</span>
+            </div>
+            <div class="card-face card-face-back">
+                <span class="category-tag" id="category-back">Kategoria</span>
+                <div id="back-text">Definicja</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress">
+        Karta <span id="current-index">1</span> z <span id="total-cards">0</span>
+    </div>
+
+    <div class="controls" id="browse-controls">
+        <button class="secondary" onclick="prevCard()">&#8592; Poprzednia</button>
+        <button class="secondary" onclick="shuffleCards()">Losuj kolejność</button>
+        <button onclick="nextCard()">Następna &#8594;</button>
+    </div>
+
+    <div class="learning-controls" id="learn-controls" style="display: none;">
+        <button class="btn-dont-know" onclick="markCard(false)">✗ Nie umiem</button>
+        <button class="btn-know" onclick="markCard(true)">✓ Umiem</button>
+    </div>
+
+    <div class="controls" id="reset-controls" style="display: none; margin-top: 10px;">
+        <button class="secondary" onclick="resetProgress()">Resetuj postęp</button>
+    </div>
+
+    <div class="complete-message" id="complete-message">
+        <h2>🎉 Gratulacje!</h2>
+        <p>Opanowałeś wszystkie fiszki w tej sesji!</p>
+        <button onclick="resetProgress()" style="margin-top: 20px;">Rozpocznij od nowa</button>
+    </div>
+
+    <script>
+        // Baza danych fiszek na podstawie dostarczonych materiałów
+        const flashcardsData = [
+            // --- CW9 ---
+            {
+                category: "CW9 - Decyzje",
+                term: "Problem decyzyjny",
+                definition: "Sytuacja konieczności wyboru spośród co najmniej dwóch wariantów postępowania różniących się między sobą stopniem korzyści."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzja",
+                definition: "Świadomy wybór spośród rozpoznanych i uznanych za możliwe wariantów przyszłego działania."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzje w warunkach pewności",
+                definition: "Podejmowane, gdy znamy dokładnie konsekwencje wyboru (wynik jest pewny)."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzje w warunkach ryzyka",
+                definition: "Podejmowane, gdy można przypisać prawdopodobieństwo poszczególnym „stanom Natury” (konsekwencjom)."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzje w warunkach niepewności",
+                definition: "Podejmowane, gdy nie można przypisać prawdopodobieństwa poszczególnym stanom Natury."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzje strategiczne",
+                definition: "Decyzje o dużym „ciężarze gatunkowym”, dotyczące kluczowych, długofalowych celów organizacji."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Decyzje operacyjne",
+                definition: "Decyzje o mniejszym ciężarze gatunkowym, dotyczące bieżącego funkcjonowania."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Drzewo decyzyjne",
+                definition: "Narzędzie graficzne wspierające podejmowanie decyzji. Ilustruje problem decyzyjny, warianty postępowania, strategie „Natury” (lub innego gracza) oraz wypłaty dla kombinacji."
+            },
+            {
+                category: "CW9 - Decyzje",
+                term: "Burza mózgów (Brainstorming)",
+                definition: "Metoda heurystyczna (twórczego rozwiązywania problemów). Cel: stworzenie bogactwa pomysłów w krótkim czasie bez ich natychmiastowego oceniania/krytykowania ."
+            },
+
+            // --- CW10 ---
+            {
+                category: "CW10 - Jakość",
+                term: "Kaizen",
+                definition: "Oznacza „zmianę na lepsze”. To filozofia ciągłego wprowadzania drobnych usprawnień, dzięki którym systematycznie osiągana jest poprawa."
+            },
+            {
+                category: "CW10 - Jakość",
+                term: "Zasada 5S",
+                definition: "Zbiór technik organizacji miejsca pracy:<br>1. Seiri (Selekcja)<br>2. Seiton (Systematyka)<br>3. Seiso (Sprzątanie)<br>4. Seiketsu (Standaryzacja)<br>5. Shitsuke (Samodyscyplina) ."
+            },
+            {
+                category: "CW10 - Jakość",
+                term: "Muda (Marnotrawstwo) - przykłady",
+                definition: "Wszelkie działania niedodające wartości. Główne typy: nadprodukcja, zbędne ruchy, oczekiwanie, zapasy, zbędny transport, braki/przeróbki, zbędna praca ."
+            },
+
+            // --- CW11 ---
+            {
+                category: "CW11 - Procesy",
+                term: "Proces (definicja)",
+                definition: "Strumień (sekwencja) wzajemnie powiązanych działań przetwarzających elementy wejścia (materialne i niematerialne) w elementy wyjścia."
+            },
+            {
+                category: "CW11 - Procesy",
+                term: "Procedura",
+                definition: "Określony sposób realizacji procesu (jak coś ma być zrobione)."
+            },
+            {
+                category: "CW11 - Procesy",
+                term: "Monitorowanie procesu",
+                definition: "Obserwacja statusu działań."
+            },
+            {
+                category: "CW11 - Procesy",
+                term: "Identyfikacja procesów",
+                definition: "Pierwszy krok zarządzania procesowego. Polega na rozpoznaniu, wskazaniu i nazwaniu procesów składających się na funkcjonowanie organizacji (podejścia top-down lub bottom-up) ."
+            },
+            {
+                category: "CW11 - Procesy",
+                term: "Selekcja procesów",
+                definition: "Podział procesów ze względu na ich rolę:<br>1. Główne (tworzą wartość dla klienta)<br>2. Pomocnicze (tworzą warunki działania)<br>3. Zarządcze (ustalanie celów, strategia) ."
+            },
+            {
+                category: "CW11 - Procesy",
+                term: "Opis procesów",
+                definition: "Charakterystyka procesu za pomocą cech takich jak: nazwa, cel, wejścia, wyjścia, dostawcy, klienci, właściciel procesu, mierniki."
+            },
+
+            // --- CW12 ---
+            {
+                category: "CW12 - Strategia",
+                term: "Etapy planowania strategicznego",
+                definition: "1. Formułowanie misji<br>2. Analiza strategiczna (otoczenia i organizacji)<br>3. Wizja i strategia<br>4. Mapa strategii<br>5. Mierniki i cele szczegółowe."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Istota analizy strategicznej",
+                definition: "Zbiór działań diagnozujących przedsiębiorstwo i jego otoczenie w zakresie umożliwiającym sformułowanie wizji i strategii."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Strategiczna Jednostka Biznesu (SJB)",
+                definition: "Wyodrębniona część firmy, która:<br>- ma zewnętrznych klientów i konkurentów<br>- samodzielnie decyduje o ofercie<br>- jest centrum zysku ."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Idea macierzy BCG",
+                definition: "Metoda portfelowa oparta na cyklu życia produktu i efekcie doświadczenia. Zakłada, że rentowność jest silnie powiązana z udziałem w rynku ."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Wymiary macierzy BCG (Wzory)",
+                definition: "1. <span class='math'>Względny udział w rynku = Udział w rynku badanej SJB / Udział największego konkurenta</span><br>2. <span class='math'>Tempo wzrostu rynku = (Sprzedaż t - Sprzedaż t-1) / Sprzedaż t-1</span>."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Gwiazdy (Macierz BCG)",
+                definition: "Wysoki udział w rynku, wysokie tempo wzrostu. Wymagają inwestycji, ale przynoszą duże zyski i mają potencjał."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Dojne krowy (Macierz BCG)",
+                definition: "Wysoki udział w rynku, niskie tempo wzrostu. Generują nadwyżki finansowe (gotówkę), nie wymagają dużych inwestycji."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Psy (Macierz BCG)",
+                definition: "Niski udział w rynku, niskie tempo wzrostu. Przynoszą małe zyski lub straty, bez perspektyw wzrostu."
+            },
+            {
+                category: "CW12 - Strategia",
+                term: "Elementy analizy SWOT",
+                definition: "S (Strengths) - Siły<br>W (Weaknesses) - Słabości<br>O (Opportunities) - Szanse<br>T (Threats) - Zagrożenia ."
+            },
+
+            // --- CW13 ---
+            {
+                category: "CW13 - Kontrolowanie",
+                term: "Kontrolowanie (Definicja)",
+                definition: "Proces zapewniania, by działania były zgodne z planami; obserwowanie postępów organizacji w realizacji celów i korygowanie odchyleń."
+            },
+            {
+                category: "CW13 - Kontrolowanie",
+                term: "Cele kontroli",
+                definition: "- Przystosowanie do zmian w otoczeniu<br>- Ograniczanie kumulowania się błędów<br>- Radzenie sobie ze złożonością<br>- Minimalizacja kosztów ."
+            },
+            {
+                category: "CW13 - Kontrolowanie",
+                term: "Etapy procesu kontroli",
+                definition: "1. Ustalenie norm (z planów)<br>2. Pomiar wyników (monitoring)<br>3. Porównanie wyników z normami<br>4. Ocena i reakcja (korekta, zmiana norm lub status quo) ."
+            },
+            {
+                category: "CW13 - Kontrolowanie",
+                term: "Szczeble kontroli",
+                definition: "1. Strategiczna (ocena strategii)<br>2. Strukturalna (ocena struktury)<br>3. Operacji (procesy transformacji)<br>4. Finansowa (zasoby finansowe) ."
+            },
+            {
+                category: "CW13 - Kontrolowanie",
+                term: "Formy kontroli operacji",
+                definition: "1. Wstępna / Ex ante (zasoby przed procesem)<br>2. Równoległa / Bieżąca (w trakcie procesu)<br>3. Końcowa / Ex post (wyniki po procesie) ."
+            }
+        ];
+
+        // Stan aplikacji
+        let currentCardIndex = 0;
+        let currentMode = 'browse'; // 'browse' lub 'learn'
+        let knownCards = new Set(); // Zbiór indeksów opanowanych fiszek
+        let learningQueue = []; // Kolejka fiszek do nauki
+        let currentLearningIndex = 0;
+
+        const cardElement = document.getElementById('card');
+        const frontText = document.getElementById('front-text');
+        const backText = document.getElementById('back-text');
+        const categoryFront = document.getElementById('category');
+        const categoryBack = document.getElementById('category-back');
+        const countSpan = document.getElementById('current-index');
+        const totalSpan = document.getElementById('total-cards');
+        const sceneElement = document.getElementById('card-scene');
+        const progressElement = document.querySelector('.progress');
+
+        // Elementy trybu nauki
+        const statsElement = document.getElementById('stats');
+        const knownCountSpan = document.getElementById('known-count');
+        const totalLearnSpan = document.getElementById('total-learn');
+        const remainingCountSpan = document.getElementById('remaining-count');
+        const statsBarFill = document.getElementById('stats-bar-fill');
+        const browseControls = document.getElementById('browse-controls');
+        const learnControls = document.getElementById('learn-controls');
+        const resetControls = document.getElementById('reset-controls');
+        const completeMessage = document.getElementById('complete-message');
+
+        // Inicjalizacja
+        totalSpan.innerText = flashcardsData.length;
+        loadProgress();
+        updateCardContent();
+
+        // Obsługa odwracania karty
+        cardElement.addEventListener('click', function() {
+            this.classList.toggle('is-flipped');
+        });
+
+        // Funkcja aktualizująca treść karty
+        function updateCardContent() {
+            // Reset obrotu przy zmianie karty
+            cardElement.classList.remove('is-flipped');
+
+            // Małe opóźnienie, żeby zmiana treści była niewidoczna podczas animacji resetu (opcjonalne)
+            setTimeout(() => {
+                const data = flashcardsData[currentCardIndex];
+                frontText.innerHTML = data.term;
+                backText.innerHTML = data.definition;
+                categoryFront.innerText = data.category;
+                categoryBack.innerText = data.category;
+                countSpan.innerText = currentCardIndex + 1;
+            }, 150);
+        }
+
+        // Następna karta
+        function nextCard() {
+            currentCardIndex = (currentCardIndex + 1) % flashcardsData.length;
+            updateCardContent();
+        }
+
+        // Poprzednia karta
+        function prevCard() {
+            currentCardIndex = (currentCardIndex - 1 + flashcardsData.length) % flashcardsData.length;
+            updateCardContent();
+        }
+
+        // Tasowanie (Algorytm Fisher-Yates)
+        function shuffleCards() {
+            for (let i = flashcardsData.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcardsData[i], flashcardsData[j]] = [flashcardsData[j], flashcardsData[i]];
+            }
+            currentCardIndex = 0;
+            updateCardContent();
+        }
+
+        // Obsługa klawiaturą (strzałki)
+        document.addEventListener('keydown', function(event) {
+            if (currentMode === 'browse') {
+                if (event.key === "ArrowRight") {
+                    nextCard();
+                } else if (event.key === "ArrowLeft") {
+                    prevCard();
+                } else if (event.key === " " || event.key === "Enter") {
+                    cardElement.classList.toggle('is-flipped');
+                }
+            } else {
+                if (event.key === " " || event.key === "Enter") {
+                    cardElement.classList.toggle('is-flipped');
+                } else if (event.key === "ArrowRight" || event.key === "1") {
+                    markCard(true);
+                } else if (event.key === "ArrowLeft" || event.key === "2") {
+                    markCard(false);
+                }
+            }
+        });
+
+        // Przełączanie trybu
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn-browse').classList.toggle('active', mode === 'browse');
+            document.getElementById('btn-learn').classList.toggle('active', mode === 'learn');
+
+            if (mode === 'browse') {
+                statsElement.style.display = 'none';
+                browseControls.style.display = 'flex';
+                learnControls.style.display = 'none';
+                resetControls.style.display = 'none';
+                progressElement.style.display = 'block';
+                sceneElement.style.display = 'block';
+                completeMessage.classList.remove('show');
+                currentCardIndex = 0;
+                updateCardContent();
+            } else {
+                statsElement.style.display = 'block';
+                browseControls.style.display = 'none';
+                learnControls.style.display = 'flex';
+                resetControls.style.display = 'flex';
+                initLearningMode();
+            }
+        }
+
+        // Inicjalizacja trybu nauki
+        function initLearningMode() {
+            // Buduj kolejkę z fiszek, które nie są opanowane
+            learningQueue = [];
+            for (let i = 0; i < flashcardsData.length; i++) {
+                if (!knownCards.has(i)) {
+                    learningQueue.push(i);
+                }
+            }
+            // Tasuj kolejkę
+            for (let i = learningQueue.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [learningQueue[i], learningQueue[j]] = [learningQueue[j], learningQueue[i]];
+            }
+            currentLearningIndex = 0;
+            updateStats();
+            showCurrentLearningCard();
+        }
+
+        // Pokaż aktualną fiszkę w trybie nauki
+        function showCurrentLearningCard() {
+            if (learningQueue.length === 0) {
+                // Wszystkie opanowane
+                sceneElement.style.display = 'none';
+                learnControls.style.display = 'none';
+                progressElement.style.display = 'none';
+                completeMessage.classList.add('show');
+                return;
+            }
+
+            sceneElement.style.display = 'block';
+            learnControls.style.display = 'flex';
+            progressElement.style.display = 'block';
+            completeMessage.classList.remove('show');
+
+            const dataIndex = learningQueue[currentLearningIndex];
+            const data = flashcardsData[dataIndex];
+
+            cardElement.classList.remove('is-flipped');
+            setTimeout(() => {
+                frontText.innerHTML = data.term;
+                backText.innerHTML = data.definition;
+                categoryFront.innerText = data.category;
+                categoryBack.innerText = data.category;
+                countSpan.innerText = currentLearningIndex + 1;
+                totalSpan.innerText = learningQueue.length;
+            }, 150);
+        }
+
+        // Oznacz fiszkę jako opanowaną lub nie
+        function markCard(known) {
+            if (learningQueue.length === 0) return;
+
+            const dataIndex = learningQueue[currentLearningIndex];
+
+            if (known) {
+                // Oznacz jako opanowaną
+                knownCards.add(dataIndex);
+                learningQueue.splice(currentLearningIndex, 1);
+                if (currentLearningIndex >= learningQueue.length) {
+                    currentLearningIndex = 0;
+                }
+            } else {
+                // Przesuń na koniec kolejki
+                const card = learningQueue.splice(currentLearningIndex, 1)[0];
+                learningQueue.push(card);
+                if (currentLearningIndex >= learningQueue.length) {
+                    currentLearningIndex = 0;
+                }
+            }
+
+            saveProgress();
+            updateStats();
+            showCurrentLearningCard();
+        }
+
+        // Aktualizuj statystyki
+        function updateStats() {
+            const total = flashcardsData.length;
+            const known = knownCards.size;
+            const remaining = total - known;
+            const percentage = (known / total) * 100;
+
+            knownCountSpan.innerText = known;
+            totalLearnSpan.innerText = total;
+            remainingCountSpan.innerText = remaining;
+            statsBarFill.style.width = percentage + '%';
+        }
+
+        // Zapisz postęp do localStorage
+        function saveProgress() {
+            localStorage.setItem('flashcards-known', JSON.stringify([...knownCards]));
+        }
+
+        // Wczytaj postęp z localStorage
+        function loadProgress() {
+            const saved = localStorage.getItem('flashcards-known');
+            if (saved) {
+                knownCards = new Set(JSON.parse(saved));
+            }
+        }
+
+        // Resetuj postęp
+        function resetProgress() {
+            knownCards.clear();
+            saveProgress();
+            initLearningMode();
+        }
+
+    </script>
+</body>
+</html>
