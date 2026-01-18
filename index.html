@@ -638,16 +638,22 @@
             const dataIndex = learningQueue[currentLearningIndex];
 
             if (known) {
-                // Oznacz jako opanowaną
+                // Oznacz jako opanowaną - usuń z kolejki na zawsze
                 knownCards.add(dataIndex);
                 learningQueue.splice(currentLearningIndex, 1);
+                // Jeśli to była ostatnia fiszka, sprawdź czy są jeszcze jakieś do nauki
+                if (learningQueue.length === 0) {
+                    saveProgress();
+                    updateStats();
+                    showCurrentLearningCard(); // Pokaże ekran gratulacji
+                    return;
+                }
                 if (currentLearningIndex >= learningQueue.length) {
                     currentLearningIndex = 0;
                 }
             } else {
-                // Przesuń na koniec kolejki
-                const card = learningQueue.splice(currentLearningIndex, 1)[0];
-                learningQueue.push(card);
+                // Przenieś na koniec kolejki (tylko raz, nie dodawaj duplikatów)
+                currentLearningIndex++;
                 if (currentLearningIndex >= learningQueue.length) {
                     currentLearningIndex = 0;
                 }
